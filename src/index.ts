@@ -1,10 +1,13 @@
 import { fetchTraffic, UpstreamError } from "./radar";
+import { getOrCompute } from "./cache";
 
 /**
  * Cloudflare Worker entrypoint that exposes the traffic endpoint.
  *
  * Routes:
- * - GET /api/traffic -> returns the latest traffic data from Cloudflare Radar
+ * - GET /api/traffic -> latest Portugal traffic index from Cloudflare Radar,
+ *   served from KV when cached (1 hour TTL). The X-Cache response header
+ *   is HIT when served from cache and MISS when freshly fetched.
  * - any other path -> 404 JSON response
  *
  * If the upstream Radar API fails, the worker returns a 502 with a generic error.
@@ -26,8 +29,15 @@ export default {
         return Response.json({ error: "method not allowed" }, { status: 405 });
       }
       try {
-        const data = await fetchTraffic(env.RADAR_TOKEN);
-        return Response.json(data);
+        const { value, hit } = await getOrCompute(
+          env.CACHE,
+          "traffic:PT:7d:1h",
+          3600,
+          () => fetchTraffic(env.RADAR_TOKEN),
+        );
+        return Response.json(value, {
+          headers: { "X-Cache": hit ? "HIT" : "MISS" },
+        });
       } catch (err) {
         if (err instanceof UpstreamError) {
           console.error(err.message);

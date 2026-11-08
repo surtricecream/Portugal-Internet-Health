@@ -10,7 +10,15 @@
 	"observability": {
 		"enabled": true
 	},
-	"upload_source_maps": true
+	"upload_source_maps": true,
+	"workers_dev": true,
+  	"preview_urls": false,
+	"kv_namespaces": [
+		{
+			"binding": "CACHE",
+			"id": "9099ffb9fb1d439f95b2c05754d916af",
+		}
+	]
 	/**
 	 * Smart Placement
 	 * https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
