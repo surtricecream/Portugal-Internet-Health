@@ -18,7 +18,8 @@
 			"binding": "CACHE",
 			"id": "9099ffb9fb1d439f95b2c05754d916af",
 		}
-	]
+	],
+	"assets": { "directory": "./public" }
 	/**
 	 * Smart Placement
 	 * https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement

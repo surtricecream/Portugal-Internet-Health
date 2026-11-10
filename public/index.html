@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Portugal Internet Health</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 1rem; color: #1a1a1a; }
+    h1 { margin-bottom: .25rem; }
+    .sub, .meta { color: #555; font-size: .9rem; }
+    #status { margin: 1rem 0; }
+    .chart-box { position: relative; height: 360px; }
+  </style>
+</head>
+<body>
+  <h1>Portugal Internet Health</h1>
+  <p class="sub">Relative HTTP traffic in Portugal over the last 7 days, from Cloudflare Radar.</p>
+  <p id="status">Loading…</p>
+  <div class="chart-box"><canvas id="chart"></canvas></div>
+  <p class="meta" id="meta"></p>
+  <p class="meta">
+    Values are a relative index (0 = quietest hour in the window, 1 = busiest), not request counts.
+    Data: <a href="https://radar.cloudflare.com">Cloudflare Radar</a>.
+  </p>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>
