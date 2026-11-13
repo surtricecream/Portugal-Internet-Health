@@ -1,4 +1,4 @@
-import { fetchTraffic, UpstreamError } from "./radar";
+import { fetchTraffic, UpstreamError, RANGES, isRangeKey } from "./radar";
 import { getOrCompute } from "./cache";
 
 /**
@@ -25,19 +25,21 @@ export default {
     const url = new URL(request.url);
 
     if (url.pathname === "/api/traffic") {
-      if (request.method !== "GET") {
-        return Response.json({ error: "method not allowed" }, { status: 405 });
+      const range = url.searchParams.get("range") ?? "7d";
+      if (!isRangeKey(range)) {
+        return Response.json(
+          { error: "invalid range", allowed: Object.keys(RANGES) },
+          { status: 400 },
+        );
       }
       try {
         const { value, hit } = await getOrCompute(
           env.CACHE,
-          "traffic:PT:7d:1h",
-          3600,
-          () => fetchTraffic(env.RADAR_TOKEN),
+          `traffic:PT:${range}`,
+          RANGES[range].ttl,
+          () => fetchTraffic(env.RADAR_TOKEN, range),
         );
-        return Response.json(value, {
-          headers: { "X-Cache": hit ? "HIT" : "MISS" },
-        });
+        return Response.json(value, { headers: { "X-Cache": hit ? "HIT" : "MISS" } });
       } catch (err) {
         if (err instanceof UpstreamError) {
           console.error(err.message);

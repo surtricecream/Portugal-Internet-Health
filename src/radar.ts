@@ -1,5 +1,19 @@
 const RADAR_URL = "https://api.cloudflare.com/client/v4/radar/http/timeseries";
 
+export const RANGES = {
+  "1d":  { dateRange: "1d",  aggInterval: "1h", ttl: 900 },
+  "7d":  { dateRange: "7d",  aggInterval: "1h", ttl: 3600 },
+  "30d": { dateRange: "30d", aggInterval: "1h", ttl: 3600 },
+  "6m":  { dateRange: "26w", aggInterval: "1w", ttl: 21600 },
+  "1y":  { dateRange: "52w", aggInterval: "1w", ttl: 21600 },
+} as const;
+
+export type RangeKey = keyof typeof RANGES;
+
+export function isRangeKey(value: string): value is RangeKey {
+  return Object.keys(RANGES).includes(value);
+}
+
 /**
  * Raw payload returned by Cloudflare Radar's HTTP timeseries endpoint.
  * This mirrors the upstream API shape, so we keep it intentionally loose
@@ -43,11 +57,12 @@ export class UpstreamError extends Error {}
  * @returns Normalized traffic data for the last 7 days
  * @throws UpstreamError when the upstream API fails or returns invalid data
  */
-export async function fetchTraffic(token: string): Promise<TrafficResponse> {
+export async function fetchTraffic(token: string, range: RangeKey): Promise<TrafficResponse> {
+  const { dateRange, aggInterval } = RANGES[range];
   const params = new URLSearchParams({
     location: "PT",
-    dateRange: "7d",
-    aggInterval: "1h",
+    dateRange,
+    aggInterval,
     format: "json",
   });
 

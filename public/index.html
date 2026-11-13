@@ -5,23 +5,41 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Portugal Internet Health</title>
   <style>
-    body { font-family: system-ui, sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 1rem; color: #1a1a1a; }
+    :root { --bg:#fff; --fg:#1a1a1a; --muted:#555; --grid:#e5e5e5; --line:#f6821f; --fill:rgba(246,130,31,.15); --btn:#f2f2f2; }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg:#14161a; --fg:#eee; --muted:#9aa0a6; --grid:#2b2f36; --btn:#23262d; }
+    }
+    body { font-family: system-ui, sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 1rem; background: var(--bg); color: var(--fg); }
     h1 { margin-bottom: .25rem; }
-    .sub, .meta { color: #555; font-size: .9rem; }
-    #status { margin: 1rem 0; }
+    .sub, .meta { color: var(--muted); font-size: .9rem; }
+    a { color: var(--line); }
+    .ranges { display: flex; flex-wrap: wrap; gap: .5rem; margin: 1rem 0; }
+    .ranges button { border: 0; padding: .45rem .9rem; border-radius: 999px; background: var(--btn); color: var(--fg); cursor: pointer; font: inherit; }
+    .ranges button[aria-pressed="true"] { background: var(--line); color: #fff; }
+    #status { min-height: 1.25rem; }
     .chart-box { position: relative; height: 360px; }
   </style>
 </head>
 <body>
   <h1>Portugal Internet Health</h1>
-  <p class="sub">Relative HTTP traffic in Portugal over the last 7 days, from Cloudflare Radar.</p>
-  <p id="status">Loading…</p>
+  <p class="sub">Relative HTTP traffic in Portugal, from Cloudflare Radar.</p>
+
+  <div class="ranges" role="group" aria-label="Time range">
+    <button data-range="1d">24 h</button>
+    <button data-range="7d">7 days</button>
+    <button data-range="30d">30 days</button>
+    <button data-range="6m">6 months</button>
+    <button data-range="1y">1 year</button>
+  </div>
+
+  <p id="status" class="meta" role="status"></p>
   <div class="chart-box"><canvas id="chart"></canvas></div>
   <p class="meta" id="meta"></p>
   <p class="meta">
-    Values are a relative index (0 = quietest hour in the window, 1 = busiest), not request counts.
-    Data: <a href="https://radar.cloudflare.com">Cloudflare Radar</a>.
+    Values are a relative index within the selected window (0 = quietest point, 1 = busiest), not request counts,
+    so levels are not comparable between ranges. Data: <a href="https://radar.cloudflare.com">Cloudflare Radar</a>.
   </p>
+
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
   <script src="/app.js"></script>
 </body>
