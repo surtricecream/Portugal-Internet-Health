@@ -1,5 +1,16 @@
+/**
+ * Base URL for the Cloudflare Radar HTTP timeseries endpoint.
+ */
 const RADAR_URL = "https://api.cloudflare.com/client/v4/radar/http/timeseries";
 
+/**
+ * Supported time windows. Each key is a public API value that maps to a Radar
+ * date range, an aggregation interval and a cache TTL (in seconds).
+ *
+ * Radar rejects fine aggregation intervals for long date ranges, so hourly
+ * points are used up to 30 days and weekly points for 6 months (26w) and
+ * 1 year (52w). The keys must match the buttons in public/index.html.
+ */
 export const RANGES = {
   "1d":  { dateRange: "1d",  aggInterval: "1h", ttl: 900 },
   "7d":  { dateRange: "7d",  aggInterval: "1h", ttl: 3600 },
@@ -8,16 +19,29 @@ export const RANGES = {
   "1y":  { dateRange: "52w", aggInterval: "1w", ttl: 21600 },
 } as const;
 
+/**
+ * Valid range keys accepted by the Radar client.
+ */
 export type RangeKey = keyof typeof RANGES;
 
+/**
+ * Checks whether a string is a supported range key.
+ *
+ * Uses Object.keys instead of the `in` operator so inherited properties
+ * such as "toString" are not accepted.
+ *
+ * @param value Candidate value to validate.
+ * @returns `true` when the value is one of the keys of `RANGES`.
+ */
 export function isRangeKey(value: string): value is RangeKey {
   return Object.keys(RANGES).includes(value);
 }
 
 /**
- * Raw payload returned by Cloudflare Radar's HTTP timeseries endpoint.
- * This mirrors the upstream API shape, so we keep it intentionally loose
- * and validate it before exposing it to the rest of the app.
+ * The subset of Radar's HTTP timeseries response that this code relies on.
+ *
+ * Fields that are not used here are omitted on purpose. `values` may arrive
+ * as numbers or as numeric strings, so both are accepted.
  */
 interface RadarTimeseries {
   success: boolean;
@@ -33,9 +57,11 @@ interface RadarTimeseries {
 }
 
 /**
- * Normalized traffic data for a given region and time window.
- * The values are the relative HTTP traffic index returned by Radar,
- * converted into a simpler shape for the app to consume.
+ * Traffic data for Portugal in the selected time window, in the format
+ * this app exposes through its own API.
+ *
+ * Values are a relative index normalized within the requested window, so
+ * they are not comparable across different ranges.
  */
 export interface TrafficResponse {
   location: string;
@@ -47,17 +73,29 @@ export interface TrafficResponse {
   points: { t: string; v: number }[];
 }
 
+/**
+ * Raised when the Radar API cannot be reached, returns an error status,
+ * or returns data that is invalid or inconsistent.
+ */
 export class UpstreamError extends Error {}
 
-
 /**
- * Fetches recent HTTP traffic data for Portugal from Cloudflare Radar.
+ * Fetches Portugal HTTP traffic data from Cloudflare Radar and reshapes it
+ * into the app's own response format.
  *
- * @param token Cloudflare API token used for Authorization
- * @returns Normalized traffic data for the last 7 days
- * @throws UpstreamError when the upstream API fails or returns invalid data
+ * @param token Cloudflare API token, sent as a Bearer token.
+ * @param range Supported time window identifier.
+ * @returns Traffic data for Portugal in the requested window.
+ * @throws UpstreamError If Radar cannot be reached, responds with a non-OK
+ * status, returns invalid JSON, reports `success: false`, or returns
+ * timestamps and values of different lengths.
+ * @note Values are normalized within the selected window and are not meant
+ * to be compared across different date ranges.
  */
-export async function fetchTraffic(token: string, range: RangeKey): Promise<TrafficResponse> {
+export async function fetchTraffic(
+  token: string,
+  range: RangeKey,
+): Promise<TrafficResponse> {
   const { dateRange, aggInterval } = RANGES[range];
   const params = new URLSearchParams({
     location: "PT",
@@ -66,19 +104,34 @@ export async function fetchTraffic(token: string, range: RangeKey): Promise<Traf
     format: "json",
   });
 
-  const res = await fetch(`${RADAR_URL}?${params}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${RADAR_URL}?${params}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  } catch {
+    throw new UpstreamError("Could not reach Radar");
+  }
+
   if (!res.ok) {
     throw new UpstreamError(`Radar responded with HTTP ${res.status}`);
   }
 
-  const raw = (await res.json()) as RadarTimeseries;
+  let raw: RadarTimeseries;
+  try {
+    raw = (await res.json()) as RadarTimeseries;
+  } catch {
+    throw new UpstreamError("Radar returned invalid JSON");
+  }
+
+  // Radar can return HTTP 200 with success: false
   if (!raw.success || !raw.result) {
     throw new UpstreamError("Radar returned an unsuccessful response");
   }
 
   const { serie_0, meta } = raw.result;
+
+  // map() below would silently misalign points if the arrays differ in length
   if (serie_0.timestamps.length !== serie_0.values.length) {
     throw new UpstreamError("Radar timestamps and values do not match");
   }
@@ -95,6 +148,7 @@ export async function fetchTraffic(token: string, range: RangeKey): Promise<Traf
     updated: meta.lastUpdated,
     points: serie_0.timestamps.map((t, i) => ({
       t,
+      // values may arrive as numeric strings
       v: Number(serie_0.values[i]),
     })),
   };
