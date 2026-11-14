@@ -4,12 +4,17 @@ const metaEl = document.getElementById("meta");
 const buttons = [...document.querySelectorAll("[data-range]")];
 const validRanges = buttons.map((b) => b.dataset.range);
 
+// Radar sends UTC timestamps; always display them in Lisbon time
 const fmt = (opts) => new Intl.DateTimeFormat("en-GB", { timeZone: TZ, ...opts });
+
+// Axis tick labels, chosen by range
 const tickFmt = {
   hours: fmt({ weekday: "short", hour: "2-digit", minute: "2-digit" }),
   days: fmt({ day: "2-digit", month: "short" }),
   daysYear: fmt({ day: "2-digit", month: "short", year: "2-digit" }),
 };
+
+// Tooltip titles, chosen by the aggregation interval of the data
 const tipFmt = {
   hourly: fmt({ weekday: "short", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }),
   daily: fmt({ weekday: "short", day: "2-digit", month: "short", year: "numeric" }),
@@ -56,7 +61,8 @@ function draw(data, range) {
       interaction: { mode: "index", intersect: false },
       scales: {
         y: {
-          min: 0, max: 1,
+          min: 0,
+          max: 1,
           title: { display: true, text: "Relative index", color: cssVar("--muted") },
           grid: { color: cssVar("--grid") },
           ticks: { color: cssVar("--muted") },
@@ -92,7 +98,7 @@ async function load(range) {
     const res = await fetch(`/api/traffic?range=${range}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    if (mine !== seq) return;
+    if (mine !== seq) return; // a newer click already took over
     draw(data, range);
     statusEl.textContent = "";
     metaEl.textContent = `Last updated by Radar: ${tipFmt.hourly.format(new Date(data.updated))} (Lisbon time)`;
@@ -105,5 +111,6 @@ async function load(range) {
 
 buttons.forEach((b) => b.addEventListener("click", () => load(b.dataset.range)));
 
+// Allow deep links like /?range=30d, but only accept known values
 const initial = new URLSearchParams(location.search).get("range");
 load(validRanges.includes(initial) ? initial : "7d");
